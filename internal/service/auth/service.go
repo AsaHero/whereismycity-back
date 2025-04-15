@@ -30,7 +30,6 @@ func (s *service) Login(ctx context.Context, username, password string) (*entity
 		ctx,
 		map[string]any{
 			"username": username,
-			"password": password,
 		},
 	)
 	if err != nil {

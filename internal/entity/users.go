@@ -10,7 +10,7 @@ const (
 )
 
 type Users struct {
-	ID           int64
+	ID           string
 	Username     string
 	Role         string
 	PasswordHash string

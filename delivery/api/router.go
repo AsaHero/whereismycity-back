@@ -35,7 +35,7 @@ func NewRouter(cfg *config.Config, opt *handlers.HandlerOptions) *gin.Engine {
 	validator := validation.NewValidator()
 
 	// handlers initialization
-	mainHandler := handlers.NewHandler(cfg, validator, opt)
+	mainHandler := handlers.New(cfg, validator, opt)
 
 	// Set base path /api/v1
 	router := r.Group(middlewares.APIPrefix)

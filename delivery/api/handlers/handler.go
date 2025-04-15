@@ -18,7 +18,7 @@ type Handler struct {
 	searchService search.Service
 }
 
-func NewHandler(cfg *config.Config, validator *validation.Validator, opt *HandlerOptions) *Handler {
+func New(cfg *config.Config, validator *validation.Validator, opt *HandlerOptions) *Handler {
 	return &Handler{
 		config:        cfg,
 		validator:     validator,
