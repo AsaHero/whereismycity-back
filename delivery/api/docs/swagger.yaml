@@ -1,0 +1,11 @@
+info:
+  contact: {}
+  description: 'Basic Auth "Authorization: Basic <base64 encoded username:password>"'
+  termsOfService: http://swagger.io/terms/
+  title: Where Is My City
+  version: 0.0.1
+paths: {}
+securityDefinitions:
+  BasicAuth:
+    type: basic
+swagger: "2.0"

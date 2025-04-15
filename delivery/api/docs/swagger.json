@@ -1,0 +1,16 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Basic Auth \"Authorization: Basic \u003cbase64 encoded username:password\u003e\"",
+        "title": "Where Is My City",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {},
+        "version": "0.0.1"
+    },
+    "paths": {},
+    "securityDefinitions": {
+        "BasicAuth": {
+            "type": "basic"
+        }
+    }
+}
