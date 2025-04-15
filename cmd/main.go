@@ -25,7 +25,7 @@ func main() {
 	go func() {
 		logger.Info(cfg.APP, "starting...")
 		if err := app.Start(); err != nil {
-			logger.Error("failed to start app", err)
+			logger.Error("failed to start app:", err.Error())
 		}
 	}()
 
