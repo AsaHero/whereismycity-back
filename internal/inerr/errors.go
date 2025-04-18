@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	ErrorIncorrectPassword = errors.New("incorrect password")
+	ErrorEmptySearhQuery   = errors.New("empty search query")
 )
 
 // error not found

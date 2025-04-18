@@ -7,5 +7,5 @@ import (
 )
 
 type Service interface {
-	Search(ctx context.Context, query string, limit uint, filter entity.FilterOptions) ([]*entity.Locations, error)
+	Search(ctx context.Context, query string, limit uint, filter entity.LocationFilterOptions) ([]*entity.Locations, error)
 }

@@ -7,5 +7,7 @@ import (
 )
 
 type AuthService interface {
-	Login(ctx context.Context, username, password string) (*entity.Users, error)
+	LoginByUsername(ctx context.Context, username, password string) (*entity.Users, error)
+	Login(ctx context.Context, login, password string) (*entity.Users, error)
+	Register(ctx context.Context, name, email, password string) (*entity.Users, error)
 }

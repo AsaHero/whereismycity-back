@@ -17,7 +17,7 @@ func BasicAuth(authService auth.AuthService) gin.HandlerFunc {
 			return
 		}
 
-		user, err := authService.Login(c, username, password)
+		user, err := authService.LoginByUsername(c, username, password)
 		if err != nil {
 			outerr.Unauthorized(c, err.Error())
 			c.Abort()
@@ -25,6 +25,7 @@ func BasicAuth(authService auth.AuthService) gin.HandlerFunc {
 		}
 
 		c.Set("user", user)
+		c.Set("role", string(user.Role))
 
 		c.Next()
 	}

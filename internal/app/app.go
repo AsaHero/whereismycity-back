@@ -10,10 +10,11 @@ import (
 	"github.com/AsaHero/whereismycity/delivery/api/handlers"
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/embeddings"
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/repository/locations"
-	"github.com/AsaHero/whereismycity/internal/infrasturcture/repository/users"
+	users_repo "github.com/AsaHero/whereismycity/internal/infrasturcture/repository/users"
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/typesense"
 	"github.com/AsaHero/whereismycity/internal/service/auth"
 	"github.com/AsaHero/whereismycity/internal/service/search"
+	"github.com/AsaHero/whereismycity/internal/service/users"
 	"github.com/AsaHero/whereismycity/pkg/config"
 	"github.com/AsaHero/whereismycity/pkg/database/postgres"
 	"github.com/AsaHero/whereismycity/pkg/logger"
@@ -67,16 +68,18 @@ func (a *App) Start() error {
 	}
 
 	// Init repo
-	userRepo := users.New(a.db)
+	userRepo := users_repo.New(a.db)
 	locationsRepo := locations.New(a.db)
 
 	// Init service
 	authService := auth.New(comtextDuration, userRepo)
+	userService := users.New(comtextDuration, userRepo)
 	searchService := search.New(comtextDuration, locationsRepo, embeddingsClient, typesenseClient)
 
 	// Init gin router
 	apiRouter := api.NewRouter(a.config, &handlers.HandlerOptions{
 		AuthService:   authService,
+		UserService:   userService,
 		SearchService: searchService,
 	})
 

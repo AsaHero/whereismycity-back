@@ -17,6 +17,9 @@ const (
 	CodeInvalidValue      = "INVALID_VALUE"
 	CodeInvalidFormat     = "INVALID_FORMAT"
 	CodeInvalidParameters = "INVALID_PARAMETERS"
+
+	// Search
+	CodeEmptySearchQuery = "EMPTY_SEARCH_QUERY"
 )
 
 // ErrorResponse represents the standard error response structure

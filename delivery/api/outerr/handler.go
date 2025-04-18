@@ -10,11 +10,22 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// HandleError is the main error handling function that integrates with internal_errors
+// HandleError is the main error handling function that integrates with inerrs
 func HandleError(c *gin.Context, err error) {
 	var validationErrors validator.ValidationErrors
 
 	switch {
+	case errors.Is(err, inerr.ErrorIncorrectPassword):
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Code:    CodeUnauthorized,
+			Message: err.Error(),
+		})
+	case errors.Is(err, inerr.ErrorEmptySearhQuery):
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Code:    CodeEmptySearchQuery,
+			Message: err.Error(),
+			Details: "Search query can't be empty",
+		})
 	case errors.As(err, &validationErrors):
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Code:    CodeValidation,

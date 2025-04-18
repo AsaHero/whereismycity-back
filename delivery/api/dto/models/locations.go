@@ -14,8 +14,8 @@ type Location struct {
 }
 
 type SearchRequest struct {
-	Query string `form:"query" validate:"required,min=3,max=100"`
-	Limit uint   `form:"limit" validate:"required,min=1,max=100,default=10"`
+	Query string `form:"q" validate:"required,min=2,max=100"`
+	Limit uint   `form:"limit" validate:"required,min=1,max=100"`
 }
 
 type SearchResponse struct {

@@ -11,9 +11,18 @@ import (
 )
 
 // Search godoc
-
-// Security ApiKeyAuth
-
+// @Security 	 BasicAuth
+// @Summary Search for locations
+// @Description Search for locations
+// @Tags locations
+// @Accept json
+// @Produce json
+// @Param q query string true "Searching query" example("New York")
+// @Param limit query integer false "Locations in response" minimum(1) maximum(100) default(20) example(20)
+// @Success 200 {object} models.SearchResponse
+// @Failure 400 {object} outerr.ErrorResponse
+// @Failure 500 {object} outerr.ErrorResponse
+// @Router /search [get]
 func (h *Handler) Search(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -23,7 +32,12 @@ func (h *Handler) Search(c *gin.Context) {
 		return
 	}
 
-	locations, err := h.searchService.Search(ctx, req.Query, req.Limit, entity.FilterOptions{})
+	if err := h.validator.Validate(req); err != nil {
+		outerr.HandleError(c, err)
+		return
+	}
+
+	locations, err := h.searchService.Search(ctx, req.Query, req.Limit, entity.LocationFilterOptions{})
 	if err != nil {
 		outerr.HandleError(c, err)
 		return

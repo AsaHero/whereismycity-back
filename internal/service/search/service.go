@@ -28,9 +28,17 @@ func New(contextDeadline time.Duration, locationRepo locations.Repository, embed
 	}
 }
 
-func (s *service) Search(ctx context.Context, query string, limit uint, filter entity.FilterOptions) ([]*entity.Locations, error) {
+func (s *service) Search(ctx context.Context, query string, limit uint, filter entity.LocationFilterOptions) ([]*entity.Locations, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextDeadline)
 	defer cancel()
+
+	if query == "" {
+		return nil, inerr.ErrorEmptySearhQuery
+	}
+
+	if limit == 0 {
+		limit = 20
+	}
 
 	query = utility.SynthesizeString(query)
 
