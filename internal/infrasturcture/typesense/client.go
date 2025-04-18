@@ -54,7 +54,7 @@ func (c *apiClient) HybridSearchLocations(ctx context.Context, query string, lim
 			{
 				Collection:          pointer.String("locations"),
 				QueryBy:             pointer.String("city, translations, state, country"),
-				QueryByWeights:      pointer.String("4,3,1,1"),
+				QueryByWeights:      pointer.String("5,3,1,1"),
 				ExcludeFields:       pointer.String("embeddings"),
 				PerPage:             pointer.Int(limit),
 				Prefix:              pointer.String("true"),
@@ -64,7 +64,7 @@ func (c *apiClient) HybridSearchLocations(ctx context.Context, query string, lim
 				RerankHybridMatches: pointer.Bool(true),
 				SortBy:              pointer.String("_vector_distance:asc, _text_match:desc"),
 				Q:                   pointer.String(query),
-				VectorQuery: pointer.String(fmt.Sprintf("embeddings:([%s], alpha: 0.3, k: 30)",
+				VectorQuery: pointer.String(fmt.Sprintf("embeddings:([%s], alpha: 0.3, k: 100)",
 					utility.FloatSliceToCommaSlice(embeddings))),
 			},
 		},
@@ -147,9 +147,17 @@ func (c *apiClient) HybridSearchLocations(ctx context.Context, query string, lim
 		}
 
 		// Search metrics
-		location.VectorDistance = hit.VectorDistance
-		location.RankFusionScore = hit.HybridSearchInfo.RankFusionScore
-		location.TextMatchScore = hit.TextMatch
+		if hit.VectorDistance != nil {
+			location.VectorDistance = hit.VectorDistance
+		}
+
+		if hit.TextMatch != nil {
+			location.TextMatchScore = hit.TextMatch
+		}
+
+		if hit.HybridSearchInfo != nil && hit.HybridSearchInfo.RankFusionScore != nil {
+			location.RankFusionScore = hit.HybridSearchInfo.RankFusionScore
+		}
 
 		locations[id] = location
 		locationIDs = append(locationIDs, id)
