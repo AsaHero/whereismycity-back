@@ -64,6 +64,12 @@ type Config struct {
 	Token struct {
 		Secret string
 	}
+
+	Transliterator struct {
+		Host    string
+		Port    string
+		Timeout string
+	}
 }
 
 func New() *Config {
@@ -112,6 +118,11 @@ func New() *Config {
 
 	// token configuration
 	config.Token.Secret = getEnv("TOKEN_SECRET", "secret")
+
+	// transliterator configuration
+	config.Transliterator.Host = getEnv("TRANSLITERATOR_HOST", "0.0.0.0")
+	config.Transliterator.Port = getEnv("TRANSLITERATOR_PORT", "5005")
+	config.Transliterator.Timeout = getEnv("TRANSLITERATOR_TIMEOUT", "30s")
 
 	return &config
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/embeddings"
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/repository/locations"
 	users_repo "github.com/AsaHero/whereismycity/internal/infrasturcture/repository/users"
+	"github.com/AsaHero/whereismycity/internal/infrasturcture/transliterator"
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/typesense"
 	"github.com/AsaHero/whereismycity/internal/service/auth"
 	"github.com/AsaHero/whereismycity/internal/service/search"
@@ -67,6 +68,12 @@ func (a *App) Start() error {
 		return fmt.Errorf("failed to init typesense client: %w", err)
 	}
 
+	// Init transliterator client
+	transliteratorClient, err := transliterator.New(a.config)
+	if err != nil {
+		return fmt.Errorf("failed to init transliterator client: %w", err)
+	}
+
 	// Init repo
 	userRepo := users_repo.New(a.db)
 	locationsRepo := locations.New(a.db)
@@ -74,7 +81,7 @@ func (a *App) Start() error {
 	// Init service
 	authService := auth.New(comtextDuration, userRepo)
 	userService := users.New(comtextDuration, userRepo)
-	searchService := search.New(comtextDuration, locationsRepo, embeddingsClient, typesenseClient)
+	searchService := search.New(comtextDuration, locationsRepo, embeddingsClient, typesenseClient, transliteratorClient)
 
 	// Init gin router
 	apiRouter := api.NewRouter(a.config, &handlers.HandlerOptions{

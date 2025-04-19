@@ -39,39 +39,24 @@ func New(cfg *config.Config) (Client, error) {
 	}, nil
 }
 
-func (c *apiClient) HybridSearchLocations(ctx context.Context, query string, limit int, embeddings []float64) ([]int64, map[int64]Locations, error) {
+func (c *apiClient) MultiHybridSearchLocations(ctx context.Context, queries []MultiHybridSearchRequest) ([]int64, map[int64]Locations, error) {
 	if ctx == nil {
 		return nil, nil, errors.New("context cannot be nil")
 	}
 
-	if len(embeddings) == 0 {
-		return nil, nil, errors.New("embeddings cannot be empty")
+	var searches []api.MultiSearchCollectionParameters
+	for _, v := range queries {
+		if len(v.Embeddings) == 0 {
+			return nil, nil, errors.New("embeddings cannot be empty")
+		}
+		searches = append(searches, c.hybridSearchParams(v.Query, v.Embeddings, v.Limit))
 	}
 
-	// Define search parameters
 	searchParams := api.MultiSearchSearchesParameter{
-		Searches: []api.MultiSearchCollectionParameters{
-			{
-				Collection:          pointer.String("locations"),
-				QueryBy:             pointer.String("city, translations, state, country"),
-				QueryByWeights:      pointer.String("5,3,1,1"),
-				ExcludeFields:       pointer.String("embeddings"),
-				PerPage:             pointer.Int(limit),
-				Prefix:              pointer.String("true"),
-				TypoTokensThreshold: pointer.Int(1),
-				DropTokensThreshold: pointer.Int(1),
-				FacetBy:             pointer.String("country"),
-				RerankHybridMatches: pointer.Bool(true),
-				SortBy:              pointer.String("_vector_distance:asc, _text_match:desc"),
-				Q:                   pointer.String(query),
-				VectorQuery: pointer.String(fmt.Sprintf("embeddings:([%s], alpha: 0.3, k: 100)",
-					utility.FloatSliceToCommaSlice(embeddings))),
-			},
-		},
+		Searches: searches,
 	}
 
-	// Add reasonable timeout
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, 3*time.Second)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	response, err := c.client.MultiSearch.Perform(ctxWithTimeout, &api.MultiSearchParams{}, searchParams)
@@ -79,91 +64,73 @@ func (c *apiClient) HybridSearchLocations(ctx context.Context, query string, lim
 		return nil, nil, fmt.Errorf("typesense search failed: %w", err)
 	}
 
-	// Ensure we have results
 	if len(response.Results) == 0 {
-		return nil, nil, errors.New("search returned no result sets")
+		return nil, nil, errors.New("no search result sets returned")
 	}
 
-	result := response.Results[0]
+	locationMap := make(map[int64]Locations)
+	idSet := make(map[int64]struct{})
 
-	if result.Code != nil && *result.Code != 200 {
-		return nil, nil, fmt.Errorf("typesense search failed with code %d: %s",
-			*result.Code, pointer.StringValue(result.Error))
-	}
-
-	// Handle empty results case
-	if result.Hits == nil || len(*result.Hits) == 0 {
-		return []int64{}, map[int64]Locations{}, nil
-	}
-
-	// Pre-allocate the result slice
-	locations := make(map[int64]Locations, len(*result.Hits))
-	locationIDs := make([]int64, 0, len(*result.Hits))
-
-	// Iterate over the hits
-	for _, hit := range *result.Hits {
-		if hit.Document == nil {
+	for _, result := range response.Results {
+		if result.Code != nil && *result.Code != 200 {
+			logger.Warn(fmt.Sprintf("Typesense search warning — code %d: %s",
+				*result.Code, pointer.StringValue(result.Error)))
 			continue
 		}
 
-		doc := *hit.Document
-
-		// Extract ID with type checking
-		var id int64
-		switch v := doc["location_id"].(type) {
-		case int64:
-			id = v
-		case float64:
-			id = int64(v)
-		default:
-			logger.Warn(fmt.Sprintf("unexpected type for location_id: %T", doc["location_id"]))
+		if result.Hits == nil {
 			continue
 		}
 
-		// Safely extract string fields
-		city := getStringField(doc, "city")
-		state := getStringField(doc, "state")
-		country := getStringField(doc, "country")
-		code := getStringField(doc, "code")
+		for _, hit := range *result.Hits {
+			if hit.Document == nil {
+				continue
+			}
 
-		// Extract and convert float fields
-		geoloc, ok := doc["location"].([]any)
-		if !ok || len(geoloc) != 2 {
-			logger.Warn(fmt.Sprintf("invalid coordinates for location: %d", id))
-			continue
+			doc := *hit.Document
+
+			var id int64
+			switch v := doc["location_id"].(type) {
+			case int64:
+				id = v
+			case float64:
+				id = int64(v)
+			default:
+				logger.Warn(fmt.Sprintf("unexpected type for location_id: %T", doc["location_id"]))
+				continue
+			}
+
+			newLoc := parseLocationFromHit(hit)
+
+			// If already exists, merge scores
+			if existing, exists := locationMap[id]; exists {
+				// Keep better (smaller) vector distance
+				if newLoc.VectorDistance != nil && (existing.VectorDistance == nil || *newLoc.VectorDistance < *existing.VectorDistance) {
+					existing.VectorDistance = newLoc.VectorDistance
+				}
+				// Keep higher text match
+				if newLoc.TextMatchScore != nil && (existing.TextMatchScore == nil || *newLoc.TextMatchScore > *existing.TextMatchScore) {
+					existing.TextMatchScore = newLoc.TextMatchScore
+				}
+				// Keep higher rank fusion score
+				if newLoc.RankFusionScore != nil && (existing.RankFusionScore == nil || *newLoc.RankFusionScore > *existing.RankFusionScore) {
+					existing.RankFusionScore = newLoc.RankFusionScore
+				}
+				locationMap[id] = existing
+			} else {
+				locationMap[id] = newLoc
+				idSet[id] = struct{}{}
+			}
 		}
+	}
 
-		lat := geoloc[0].(float64)
-		lng := geoloc[1].(float64)
-
-		location := Locations{
-			ID:      id,
-			City:    city,
-			State:   state,
-			Country: country,
-			Code:    code,
-			Lat:     lat,
-			Lng:     lng,
-		}
-
-		// Search metrics
-		if hit.VectorDistance != nil {
-			location.VectorDistance = hit.VectorDistance
-		}
-
-		if hit.TextMatch != nil {
-			location.TextMatchScore = hit.TextMatch
-		}
-
-		if hit.HybridSearchInfo != nil && hit.HybridSearchInfo.RankFusionScore != nil {
-			location.RankFusionScore = hit.HybridSearchInfo.RankFusionScore
-		}
-
-		locations[id] = location
+	// Extract deduped IDs
+	locationIDs := make([]int64, 0, len(idSet))
+	for id := range idSet {
 		locationIDs = append(locationIDs, id)
 	}
 
-	return locationIDs, locations, nil
+	return locationIDs, locationMap, nil
 }
 
 // Helper function to safely extract string fields
@@ -172,4 +139,67 @@ func getStringField(doc map[string]any, key string) string {
 		return val
 	}
 	return ""
+}
+
+func (c *apiClient) hybridSearchParams(query string, embeddings []float64, limit int) api.MultiSearchCollectionParameters {
+	return api.MultiSearchCollectionParameters{
+		Collection:          pointer.String("locations"),
+		QueryBy:             pointer.String("city, translations, state, country"),
+		QueryByWeights:      pointer.String("5,3,1,1"),
+		ExcludeFields:       pointer.String("embeddings"),
+		PerPage:             pointer.Int(limit),
+		Prefix:              pointer.String("true"),
+		TypoTokensThreshold: pointer.Int(1),
+		DropTokensThreshold: pointer.Int(1),
+		FacetBy:             pointer.String("country"),
+		RerankHybridMatches: pointer.Bool(true),
+		SortBy:              pointer.String("_vector_distance:asc, _text_match:desc"),
+		Q:                   pointer.String(query),
+		VectorQuery: pointer.String(fmt.Sprintf("embeddings:([%s], alpha: 0.3, k: 100, distance_threshold:0.30)",
+			utility.FloatSliceToCommaSlice(embeddings))),
+	}
+}
+
+func parseLocationFromHit(hit api.SearchResultHit) Locations {
+	doc := *hit.Document
+	var id int64
+	switch v := doc["location_id"].(type) {
+	case int64:
+		id = v
+	case float64:
+		id = int64(v)
+	}
+
+	city := getStringField(doc, "city")
+	state := getStringField(doc, "state")
+	country := getStringField(doc, "country")
+	code := getStringField(doc, "code")
+
+	var lat, lng float64
+	if locSlice, ok := doc["location"].([]any); ok && len(locSlice) == 2 {
+		lat, _ = locSlice[0].(float64)
+		lng, _ = locSlice[1].(float64)
+	}
+
+	loc := Locations{
+		ID:      id,
+		City:    city,
+		State:   state,
+		Country: country,
+		Code:    code,
+		Lat:     lat,
+		Lng:     lng,
+	}
+
+	if hit.VectorDistance != nil {
+		loc.VectorDistance = hit.VectorDistance
+	}
+	if hit.TextMatch != nil {
+		loc.TextMatchScore = hit.TextMatch
+	}
+	if hit.HybridSearchInfo != nil && hit.HybridSearchInfo.RankFusionScore != nil {
+		loc.RankFusionScore = hit.HybridSearchInfo.RankFusionScore
+	}
+
+	return loc
 }

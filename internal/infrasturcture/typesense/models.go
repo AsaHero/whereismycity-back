@@ -1,5 +1,11 @@
 package typesense
 
+type MultiHybridSearchRequest struct {
+	Query      string    `json:"q"`
+	Limit      int       `json:"limit"`
+	Embeddings []float64 `json:"embeddings"`
+}
+
 type Locations struct {
 	ID      int64   `json:"id"`
 	City    string  `json:"city"`
