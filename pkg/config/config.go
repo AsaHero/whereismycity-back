@@ -70,6 +70,11 @@ type Config struct {
 		Port    string
 		Timeout string
 	}
+
+	Telegram struct {
+		Token  string
+		ChatID string
+	}
 }
 
 func New() *Config {
@@ -123,6 +128,10 @@ func New() *Config {
 	config.Transliterator.Host = getEnv("TRANSLITERATOR_HOST", "0.0.0.0")
 	config.Transliterator.Port = getEnv("TRANSLITERATOR_PORT", "5005")
 	config.Transliterator.Timeout = getEnv("TRANSLITERATOR_TIMEOUT", "30s")
+
+	// telegram configuration
+	config.Telegram.Token = getEnv("TELEGRAM_TOKEN", "")
+	config.Telegram.ChatID = getEnv("TELEGRAM_CHAT_ID", "")
 
 	return &config
 }

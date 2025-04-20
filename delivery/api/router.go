@@ -49,6 +49,7 @@ func NewRouter(cfg *config.Config, opt *handlers.HandlerOptions) *gin.Engine {
 		public.POST("/auth/login", mainHandler.Login)
 		public.POST("/auth/refresh", mainHandler.RefreshToken)
 		public.GET("/demo", mainHandler.Search)
+		public.POST("/contacts/send", mainHandler.SendContacts)
 	}
 
 	// Bearer protected routes

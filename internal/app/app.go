@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AsaHero/whereismycity/delivery/api"
+	"github.com/AsaHero/whereismycity/delivery/api/dto/models"
 	"github.com/AsaHero/whereismycity/delivery/api/handlers"
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/embeddings"
 	"github.com/AsaHero/whereismycity/internal/infrasturcture/repository/locations"
@@ -16,6 +17,7 @@ import (
 	"github.com/AsaHero/whereismycity/internal/service/auth"
 	"github.com/AsaHero/whereismycity/internal/service/search"
 	"github.com/AsaHero/whereismycity/internal/service/users"
+	"github.com/AsaHero/whereismycity/pkg/bot"
 	"github.com/AsaHero/whereismycity/pkg/config"
 	"github.com/AsaHero/whereismycity/pkg/database/postgres"
 	"github.com/AsaHero/whereismycity/pkg/logger"
@@ -27,6 +29,7 @@ type App struct {
 	server *http.Server
 	config *config.Config
 	logger *logrus.Logger
+	bot    *bot.Bot
 	db     *gorm.DB
 }
 
@@ -40,11 +43,18 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	// Init bot
+	bot, err := bot.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	// Inin redis, kafka, grpc, rebbitmq, etc.
 
 	return &App{
 		config: cfg,
 		logger: logger,
+		bot:    bot,
 		db:     db,
 	}, nil
 }
@@ -85,9 +95,17 @@ func (a *App) Start() error {
 
 	// Init gin router
 	apiRouter := api.NewRouter(a.config, &handlers.HandlerOptions{
+		Bot:           a.bot,
 		AuthService:   authService,
 		UserService:   userService,
 		SearchService: searchService,
+	})
+
+	a.bot.SendContacts(context.Background(), models.SendContactsRequest{
+		Name:    "Asa",
+		Email:   "6zDz6@example.com",
+		Company: "Whereismycity",
+		Message: "Hello",
 	})
 
 	// Init http server
